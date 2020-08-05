@@ -26,20 +26,20 @@
     weekday: "0"
     job: "/usr/sbin/tmpreaper --mtime --dirmtime {{ max_tmpfile_age | default('7d') }} {{ galaxy_root }}/jobs"
 
-- name: setup pgcleanup script
+- name: setup gxadmin log dir
+  file:
+    path: '{{ galaxy_mutable_data_dir }}/gxadmin_logs'
+    state: directory
+    owner: '{{ galaxy_user.name }}'
+    
+- name: setup gxadmin galaxy cleanup script
   cron:
-    name: "pgcleanup_{{ item.index }}"
+    name: "gx_galaxy_cleanup"
     user: "{{ galaxy_user.name }}"
-    hour: "{{ item.hour }}"
-    minute: "{{ item.minute }}"
-    weekday: "{{ item.weekday }}"
+    hour: "{{ gx_galaxy_cleanup_hour | default(3) }}"
+    minute: "{{ gx_galaxy_cleanup_minute | default(0) }}"
+    weekday: "{{ gx_galaxy_cleanup_weekday | default(0) }}"
     job: >-
-      source {{ galaxy_venv_dir }}/bin/activate &&
-      {{ __galaxy_server_dir }}/scripts/cleanup_datasets/pgcleanup.py -c {{ galaxy_config_dir }}/galaxy.yml {{ item.command }}
-  loop:
-    - { index: "1", weekday: "0", hour: "3", minute: "0", command: "-o 30 delete_userless_histories" }
-    - { index: "2", weekday: "0", hour: "4", minute: "0", command: "-o 30 delete_exported_histories" }
-    - { index: "3", weekday: "0", hour: "4", minute: "30", command: "-o 30 purge_deleted_users" }
-    - { index: "4", weekday: "1", hour: "3", minute: "0", command: "-o 30 purge_deleted_histories" }
-    - { index: "5", weekday: "1", hour: "4", minute: "0", command: "-o 60 purge_deleted_hdas" }
-    - { index: "6", weekday: "2", hour: "3", minute: "0", command: "-o 90 purge_datasets" }
+      GALAXY_LOG_DIR={{ galaxy_mutable_data_dir }}/gxadmin_logs
+      GALAXY_ROOT={{ galaxy_root }}
+      GALAXY_CONFIG_FILE={{ galaxy_config_dir}}/galaxy.yml gxadmin galaxy cleanup {{ gx_cleanup_days | default(30) }}
